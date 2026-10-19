@@ -50,8 +50,6 @@ class Buffer:
         self._curr_size = 0
         self._size = size
         self._frozen = False
-        self._group_names: tuple[str, ...] | None = None
-        self._reward_groups = None
 
     @classmethod
     def from_dataset(cls, dataset: dict, *, train_device: str, buffer_device: str = "cpu"):
@@ -119,7 +117,6 @@ class Buffer:
         terminated,
         truncated,
         z=None,
-        reward_groups: dict | None = None,
         prev_action=None,
     ):
         if self._frozen:
@@ -139,8 +136,6 @@ class Buffer:
             if prev_action is None:
                 raise ValueError("this buffer stores prev_actions; append() needs prev_action")
             self._put_row(self._prev_actions, prev_action, i)
-        if reward_groups:
-            self._store_groups(reward_groups, i)
         self._ptr = (self._ptr + 1) % self._size
         self._curr_size = min(self._size, self._curr_size + 1)
 
@@ -163,30 +158,7 @@ class Buffer:
             out["z"] = self._z[idx].to(self.train_device)
         if self._prev_actions is not None:
             out["prev_actions"] = self._prev_actions[idx].to(self.train_device)
-        if self._reward_groups is not None:
-            cols = self._reward_groups[idx].to(self.train_device)
-            out["reward_groups"] = {
-                name: cols[:, i : i + 1] for i, name in enumerate(self._group_names)
-            }
         return out
-
-    def _store_groups(self, groups: dict, idx: int) -> None:
-        if self._group_names is None:
-            self._group_names = tuple(groups)
-            self._reward_groups = torch.zeros(
-                (self._size, len(self._group_names)),
-                dtype=torch.float32,
-                device=self.buffer_device,
-            )
-        missing = [name for name in self._group_names if name not in groups]
-        if missing:
-            raise ValueError(f"reward_groups missing {missing}")
-        row = torch.tensor(
-            [float(groups[name]) for name in self._group_names],
-            dtype=torch.float32,
-            device=self.buffer_device,
-        )
-        self._reward_groups[idx] = row
 
 
 def resolve_offline_ratio(
@@ -228,39 +200,6 @@ def resolve_offline_ratio(
             "Use 'fixed', 'natural', 'online_only', or 'linear_decay'."
         )
     return min(max(ratio, 0.0), 1.0)
-
-
-def schedule_offline_ratio(
-    train_cfg,
-    offline: Buffer,
-    online: Buffer,
-    *,
-    t: int,
-    T: int | None = None,
-    for_retrain: bool = False,
-) -> float:
-    """Resolve ratio from O2OTrainCfg fields.
-
-    During online, pass frame index `t` and total frames `T` (defaults to online_frames).
-    For final retrain, `for_retrain=True` freezes linear_decay at `offline_ratio_end`.
-    """
-    mode = getattr(train_cfg, "data_schedule", "fixed")
-    if for_retrain and str(mode).lower() == "linear_decay":
-        mode = "fixed"
-        offline_ratio = float(train_cfg.offline_ratio_end)
-    else:
-        offline_ratio = float(train_cfg.offline_ratio)
-    total = int(T) if T is not None else int(train_cfg.online_frames)
-    return resolve_offline_ratio(
-        mode,
-        offline_size=offline.size,
-        online_size=online.size,
-        offline_ratio=offline_ratio,
-        t=t,
-        T=total,
-        ratio_start=float(getattr(train_cfg, "offline_ratio_start", 1.0)),
-        ratio_end=float(getattr(train_cfg, "offline_ratio_end", 0.5)),
-    )
 
 
 def sample_mixed(offline: Buffer, online: Buffer, batch_size: int, offline_ratio: float):

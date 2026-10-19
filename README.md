@@ -1,54 +1,43 @@
 # FB
 
-从 [oorl](../oorl) 抽出的 lite Forward-Backward（F / B / π）。环境用 `uv` 管理。
+Lite Forward-Backward（F / B / π）。只覆盖 **ExORL proto 离线训练** 和 **dm_control Walker**。
 
 ## 安装
 
 ```bash
 cd /Users/yinzhoux/Files/projects/fb
 uv sync
-# dm_control walker / 录像
-uv sync --extra dmc
 ```
 
 ## 训练
 
-Gym Walker2d（在线采集）：
+两阶段：先在 ExORL proto 上拟合 F / B / π，再在同一个 dm_control walker 上混入在线 rollout。
 
 ```bash
-uv run python main_fb.py --task Walker2d-v5
-uv run python main_fb.py --config configs/fb/Walker2d-v5.yaml
+export EXORL_DATASET_DIR=/path/to/exorl/datasets
+uv run python train.py --device cuda
 ```
 
-ExORL proto 离线 + 在线混合（需要 `dm_control` 和 proto npz）：
-
-```bash
-uv run python main_fb_offline.py --device cuda
-```
-
-FB-CPR（专家序列来自 ExORL，不是 TD replay）：
-
-```bash
-uv run python main_fb_cpr.py --task walker_walk --expl-agent proto --replay-dir /path/to/exorl/datasets
-```
+`main_fb_offline.py` 仍指向同一个入口。
 
 ## 回放
 
 ```bash
-uv run python play_fb.py --ckpt checkpoints/fb_Walker2d-v5.pt --prompt zr --render human
+uv run python train.py --play --ckpt checkpoints/fb_walker_proto.pt --goal forward
 # macOS 实时 FIFO
-.venv/bin/mjpython play_fb_live.py --ckpt checkpoints/fb_walker_proto.pt
+.venv/bin/mjpython play.py --ckpt checkpoints/fb_walker_proto.pt
 ```
 
 ## 布局
 
 | 路径 | 内容 |
 | --- | --- |
-| `algos/fb.py` | Agent、FB / CPR / aux 损失 |
-| `algos/modules/fb_nets.py` | F、B、π、BallNorm |
-| `algos/fb_eval.py` | Walker 技能探测 |
-| `main_fb.py` | Gym 在线训练 |
-| `main_fb_offline.py` | proto 两阶段 |
-| `main_fb_cpr.py` | FB-CPR |
-| `play_fb.py` / `play_fb_live.py` | 回放 |
-| `configs/fb/` | Walker2d yaml |
+| `train.py` / `play.py` | CLI，只做参数和调度 |
+| `fb/agent.py` | F / B / π 和 aux Q |
+| `fb/nets.py` | 网络 |
+| `fb/walker.py` | dm_control walker、命名姿态 |
+| `fb/proto.py` | ExORL npz 加载 |
+| `fb/offline.py` | proto / 在线两段训练循环 |
+| `fb/eval.py` | goal rollout 打分 |
+| `fb/plant.py` / `fb/live.py` | FIFO 目标、ghost、viewer |
+| `fb/buffer.py` | 在线 replay 与 mixed sample |

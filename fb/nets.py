@@ -245,37 +245,3 @@ class BackwardMap(nn.Module):
 
     def forward(self, obs: torch.Tensor) -> torch.Tensor:
         return self.net(obs)
-
-
-class Discriminator(nn.Module):
-    """D(x, z) → (0,1). Table 2: 2×1024 ReLU MLP. GAN reward via compute_reward."""
-
-    def __init__(
-        self,
-        obs_dim: int,
-        z_dim: int,
-        hidden_dim: int = 1024,
-        hidden_layers: int = 2,
-    ):
-        super().__init__()
-        if hidden_layers < 1:
-            raise ValueError("hidden_layers must be >= 1")
-        layers: list[nn.Module] = [nn.Linear(obs_dim + z_dim, hidden_dim), nn.ReLU()]
-        for _ in range(hidden_layers - 1):
-            layers += [nn.Linear(hidden_dim, hidden_dim), nn.ReLU()]
-        layers.append(nn.Linear(hidden_dim, 1))
-        self.trunk = nn.Sequential(*layers)
-        self.apply(_orthogonal_init_)
-
-    def compute_logits(self, obs: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
-        obs, squeezed = _ensure_batch(obs)
-        z, _ = _ensure_batch(z)
-        logits = self.trunk(torch.cat([obs, z], dim=-1))
-        return logits.squeeze(0) if squeezed else logits
-
-    def forward(self, obs: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
-        return torch.sigmoid(self.compute_logits(obs, z))
-
-    def compute_reward(self, obs: torch.Tensor, z: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
-        p = torch.clamp(self.forward(obs, z), eps, 1.0 - eps)
-        return p.log() - (1.0 - p).log()
