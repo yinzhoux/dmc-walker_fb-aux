@@ -1,0 +1,53 @@
+world:
+  suite: gym
+  task_name: Walker2d-v5
+  dataset_dir: ./.ogbench
+  max_episode_steps: 1000
+  terminate_when_unhealthy: true
+  buffer_size: 1000000
+  train_device: cuda
+  buffer_device: cpu
+  state_normalization: false
+  obs_norm_eps: 1.0e-06
+train:
+  total_frames: 1000000
+  rev_utd_ratio: 1
+  warmup_steps: 10000
+  batch_size: 512
+  log_freq: 1000
+  eval_freq: 10000
+  eval_episodes: 10
+wandb:
+  project: fb
+  group: fb
+  mode: online
+algo_name: fb
+algo:
+  name: fb
+  gamma: 0.98
+  tau: 0.005
+  fb_lr: 0.0003
+  actor_lr: 0.0003
+  actor_delayed: 2
+  ortho_coef: 1.0
+  z_dim: 50
+  norm_z: true
+  z_horizon: 150
+  z_mix_ratio: 0.5
+  actor_std: 0.2
+  stddev_clip: 0.3
+  fb_pessimism: 0.0
+  actor_pessimism: 0.5
+  weight_decay: 0.0
+  clip_grad_norm: 0.0
+  hidden_dim: 256
+  embedding_layers: 2
+  residual_blocks: 2
+  num_parallel: 2
+  b_hidden_dim: 256
+  b_hidden_layers: 1
+  fused_adam: true
+  zero_grad_set_to_none: true
+  compile_nets: true
+  eval_inference_samples: 4096
+  reward_inference_temp: 10.0

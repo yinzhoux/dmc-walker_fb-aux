@@ -1,0 +1,38 @@
+[project]
+name = "fb"
+version = "0.1.0"
+description = "Lite Forward-Backward (F / B / π) for Walker"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gymnasium[mujoco]",
+    "numpy",
+    "pyyaml>=6.0.3",
+    "torch",
+    "tqdm",
+    "tyro>=1.0.16",
+    "wandb",
+]
+
+[project.optional-dependencies]
+dmc = [
+    "dm-control",
+    "imageio",
+    "imageio-ffmpeg",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = [
+    "buffer",
+    "config",
+    "reward_groups",
+    "train_utils",
+    "world",
+]
+
+[tool.setuptools.packages.find]
+include = ["algos*"]
